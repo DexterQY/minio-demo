@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+per.qy.minio.config.MinioConfig,\
+per.qy.minio.config.MinioAutoConfiguration
