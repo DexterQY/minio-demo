@@ -1,10 +1,13 @@
 package per.qy.service.minio.controller;
 
+import cn.hutool.core.io.file.FileNameUtil;
 import cn.hutool.core.util.StrUtil;
 import io.minio.GetObjectResponse;
 import io.minio.http.Method;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +24,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * MinioController
@@ -69,14 +73,30 @@ public class MinioController {
         return vo;
     }
 
-    @GetMapping("download")
+    @GetMapping("/download")
     public void download(HttpServletResponse response, String name, String filename) throws Exception {
-        response.setContentType("application/octet-stream");
-        response.setHeader("Content-Disposition",
-                "attachment;filename=" + URLEncoder.encode(filename, StandardCharsets.UTF_8));
+        if (StrUtil.isNotBlank(filename)) {
+            filename = filename + "." + FileNameUtil.getSuffix(name);
+        } else {
+            filename = FileNameUtil.getName(name);
+        }
+
+        Optional<MediaType> mediaType = MediaTypeFactory.getMediaType(filename);
+        mediaType.ifPresentOrElse(type -> response.setContentType(type.toString()),
+                () -> response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE));
+
+        // 图片或pdf类型浏览器直接打开
+        if (!StrUtil.containsAny(response.getContentType(), "image", "pdf")) {
+            response.setHeader("Content-Disposition",
+                    "attachment;filename=" + URLEncoder.encode(filename, StandardCharsets.UTF_8));
+        }
+
         response.setCharacterEncoding("UTF-8");
         try (GetObjectResponse objectResponse = minioService.get(name);
              ServletOutputStream outputStream = response.getOutputStream()) {
+            // 设置Content-Length
+//            Headers headers = objectResponse.headers();
+//            response.setHeader("Content-Length", headers.get("Content-Length"));
             objectResponse.transferTo(outputStream);
         } catch (IOException e) {
             log.error("", e);
